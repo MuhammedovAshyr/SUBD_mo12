@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Доступ к управляющей системе</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+        <!-- open-iconic-bootstrap (icon set for bootstrap) -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/open-iconic/1.1.1/font/css/open-iconic-bootstrap.min.css" integrity="sha256-BJ/G+e+y7bQdrYkS2RBTyNfBHpA9IuGaPmf9htub5MQ=" crossorigin="anonymous" />
+
+        <style> 
+            label {
+                display: inline-block;
+                width: 15rem;
+                text-align: right;
+                vertical-align: top;
+                font-weight: bold;
+            }
+
+            .formerrormessage {
+                margin-left: 16rem;
+            }
+
+        </style>
+    </head>
+    <body>
+        <div class = 'container-fluid'>
+
+            <div class="row">
+
+                <div class= "col-md-2">
+                </div>
+
+                <div class = "col-md-8 col xs-12">
+
+                    <h2 style="text-align: center; margin-top: 3vh;">Права доступа</h2>
+
+                    <div id ="schoolselector" style="margin-top: 10vh;">
+                    </div>
+
+                </div>
+                <div class= "col-md-2">
+                </div>
+            </div>
+        </div>
+
+        <form id = 'dummyform'> 
+        </form>
+
+        <a id="launchanchor" hidden target = "_blank"></a> <!-- hidden button for document displays -->
+
+        <script>
+
+            window.onload = function () {
+
+                displaySchoolSelector()
+            }
+
+            function displaySchoolSelector() {
+
+                var form = document.forms.namedItem("dummyform");
+                var oData = new FormData(form);
+                oData.append("helper_type", "display_school_selector");
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/lea_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        var response = oReq.responseText;
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                        } else {
+                            document.getElementById('schoolselector').innerHTML = response;
+                        }
+                    }
+                };
+                oReq.send(oData);
+            }
+
+            var schoolNames;
+            var userIds;
+            function displaySchoolsManagementScreen(message) {
+
+                var form = document.forms.namedItem("dummyform");
+                var oData = new FormData(form);
+                oData.append("helper_type", "build_schools_management_screen");
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/lea_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        var response = oReq.responseText;
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                        } else {
+
+                            var xmlDoc = oReq.responseXML;
+                            var JSONString = xmlDoc.getElementsByTagName("returns")[0].childNodes[0].nodeValue;
+                            var JSONObject = JSON.parse(JSONString);
+
+                            response = JSONObject.return;
+                            schoolNames = JSONObject.school_names;
+                            userIds = JSONObject.user_ids;
+
+                            document.getElementById('schoolselector').innerHTML = response;
+                            document.getElementById('messagearea').innerHTML = message;
+                            document.getElementById('messagearea').style.color = 'blue';
+
+                            // если сообщение пустое, можно с предположить, что мы вошли в систему, поэтому можно заполнить
+                            // logindiv и отобразить managementdiv. Все вызовы на displaySchoolsManagementScreen
+                            // будет иметь сообщение, за исключением первоначального запроса на вход в систему
+
+                            if (message != '') {
+                                document.getElementById('lealogindiv').style.display = "none";
+                                document.getElementById('leaschoolmanagementdiv').style.display = "block";
+                            }
+                        }
+                    }
+                };
+                oReq.send(oData);
+            }
+
+            function validateLEAPassword() {
+
+                var form = document.forms.namedItem("dummyform");
+                var oData = new FormData(form);
+                oData.append("helper_type", "validate_lea_password");
+                oData.append("lea_password", document.getElementById('leapassword').value);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/lea_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        var response = oReq.responseText;
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                        } else {
+                            if (response.indexOf("invalid") != -1) {
+                                injectErrorMessage('leapassword', "Извините, этот пароль невереный");
+                            } else {                                
+
+                                document.getElementById('leaschoolmanagementdiv').style.display = "block";
+                            }
+                        }
+                    }
+                };
+                oReq.send(oData);
+            }
+
+            var selectedSchoolId;
+            function displayOldSchoolParameters() {
+
+                var form = document.forms.namedItem("dummyform");
+                var oData = new FormData(form);
+                oData.append("helper_type", "get_school_data");
+                var schoolsselector = document.getElementById('schoolsselector');
+                selectedSchoolId = schoolsselector.options[schoolsselector.selectedIndex].value;
+                schoolsselector.selectedIndex = 0; 
+
+                if (selectedSchoolId == 0)
+                    return;
+                oData.append("school_id", selectedSchoolId);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/lea_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        var response = oReq.responseText;
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                        } else {
+                            var xmlDoc = oReq.responseXML;
+                            var JSONString = xmlDoc.getElementsByTagName("returns")[0].childNodes[0].nodeValue;
+                            var JSONObject = JSON.parse(JSONString);
+                            var schoolName = JSONObject.school_name;
+                            var userId = JSONObject.user_id;
+                            var password = JSONObject.password;
+
+                            document.getElementById('oldschoolname').placeholder = schoolName;
+                            document.getElementById('olduserid').placeholder = userId;
+                            document.getElementById('oldpassword').placeholder = password;
+
+                            document.getElementById('oldschoolname').value = schoolName;
+                            document.getElementById('olduserid').value = userId;
+                            document.getElementById('oldpassword').value = password;
+
+                            document.getElementById('oldschoolparameters').style.display = 'block';
+                        }
+                    }
+                };
+                oReq.send(oData);
+            }
+
+            function insertSchool() {
+
+                if (schoolDataIsValidForInsert()) {
+
+                    var form = document.forms.namedItem("dummyform");
+                    var oData = new FormData(form);
+                    oData.append("helper_type", "insert_school");
+
+                    oData.append("school_name", document.getElementById('schoolname').value);
+                    oData.append("user_id", document.getElementById('clerkid').value);
+                    oData.append("password", document.getElementById('clerkpassword').value);
+
+                    var oReq = new XMLHttpRequest();
+                    oReq.open("POST", "php/lea_helpers.php", true);
+                    oReq.onload = function (oEvent) {
+                        if (oReq.status == 200) {
+
+                            var response = oReq.responseText;
+                            if (response.indexOf("%failed%") != -1) {
+                                alert(response);
+                            } else {
+                                displaySchoolsManagementScreen("Организация успешно добавлена")
+                            }
+                        }
+                    };
+                    oReq.send(oData);
+                }
+            }
+
+            function updateSchool() {
+
+                if (schoolDataIsValidForUpdate()) {
+
+                    var form = document.forms.namedItem("dummyform");
+                    var oData = new FormData(form);
+                    oData.append("helper_type", "update_school");
+
+                    oData.append("school_id", selectedSchoolId);
+                    oData.append("school_name", document.getElementById('oldschoolname').value);
+                    oData.append("user_id", document.getElementById('olduserid').value);
+                    oData.append("password", document.getElementById('oldpassword').value);
+
+                    var oReq = new XMLHttpRequest();
+                    oReq.open("POST", "php/lea_helpers.php", true);
+                    oReq.onload = function (oEvent) {
+                        if (oReq.status == 200) {
+
+                            var response = oReq.responseText;
+                            if (response.indexOf("%failed%") != -1) {
+                                alert(response);
+                            } else {
+                                displaySchoolsManagementScreen("Организация успешно обновлена")
+                            }
+                        }
+                    };
+                    oReq.send(oData);
+                }
+            }
+
+            function deleteSchool() {
+
+                var form = document.forms.namedItem("dummyform");
+                var oData = new FormData(form);
+                oData.append("helper_type", "delete_school");
+                oData.append("school_id", selectedSchoolId);
+
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/lea_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        var response = oReq.responseText;
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                        } else {
+                            displaySchoolsManagementScreen("Организация успешно удалена")
+                        }
+                    }
+                };
+                oReq.send(oData);
+            }
+
+            var insertScreenValid;
+            function schoolDataIsValidForInsert() {
+
+                var schoolName = document.getElementById('schoolname').value;
+                var userId = document.getElementById('clerkid').value;
+                var password = document.getElementById('clerkpassword').value;
+
+                insertScreenValid = true;
+                if (!(schoolNameUnique(schoolName)))
+                    injectErrorMessage('schoolname', 'Упс - уже есть организация с таким названием');
+                if (schoolName == '')
+                    injectErrorMessage('schoolname', 'Упс - название организации не может быть пустым');
+                if (!(userIdUnique(userId)))
+                    injectErrorMessage('clerkid', 'Упс - уже есть пользователь с этим идентификатором');
+                if (userId == '')
+                    injectErrorMessage('clerkid', 'Упс - идентификатор пользователя не может быть пустым');
+                if (password == '')
+                    injectErrorMessage('clerkpassword', 'Упс - пароль не может быть пустым');
+
+                return insertScreenValid;
+            }
+
+            var updateScreenValid;
+            function schoolDataIsValidForUpdate() {
+
+                var oldSchoolName = document.getElementById('oldschoolname').placeholder;
+                var oldUserId = document.getElementById('olduserid').placeholder;
+
+                var schoolName = document.getElementById('oldschoolname').value;
+                var userId = document.getElementById('olduserid').value;
+                var password = document.getElementById('oldpassword').value;
+
+                updateScreenValid = true;
+                if ((oldSchoolName != schoolName) && !schoolNameUnique(schoolName))
+                    injectErrorMessage('oldschoolname', 'Упс - уже есть организация с таким названием');
+                if (schoolName == '')
+                    injectErrorMessage('oldschoolname', 'Упс - название организации не может быть пустым');
+                if ((oldUserId != userId) && !userIdUnique(userId))
+                    injectErrorMessage('olduserid', 'Упс - уже есть пользователь с этим идентификатором');
+                if (userId == '')
+                    injectErrorMessage('olduserid', 'Упс - идентификатор пользователя не может быть пустым');
+                if (password == '')
+                    injectErrorMessage('oldpassword', 'Упс - пароль не может быть пустым');
+
+                return updateScreenValid;
+            }
+
+            function schoolNameUnique(schoolName) {
+
+                if (schoolNames.indexOf(schoolName) == -1) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+
+            function userIdUnique(userId) {
+
+                if (userIds.indexOf(userId) == -1) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+
+            function launchSchoolPage() {
+
+                var schoolsselector = document.getElementById('schoolsselector');
+                var selectedSchoolId = schoolsselector.options[schoolsselector.selectedIndex].value;
+                schoolsselector.selectedIndex = 0; // установите значение по умолчанию, чтобы "onchange" работал, даже если одна и та же школа была выбрана дважды
+
+                if (selectedSchoolId == 0)
+                    return;
+                // добавляем фиктивный номер версии, чтобы убедиться, что страница обновляется
+                dateObject = new Date();
+                currentTime = dateObject.getTime();
+                var url = "pages.html?id=" + selectedSchoolId + "&target=governors&ver=" + currentTime;
+                var launchanchor = document.getElementById('launchanchor');
+                launchanchor.href = url;
+                launchanchor.click();
+            }
+
+            /////////////////  Сервисные функции
+
+            var insertScreenValid;
+            var updateScreenValid;
+            function injectErrorMessage(field, errorMessage) {
+
+                // Вставляем "ErrorMessage" в innerHTML элемента абзаца ошибки, связанного
+                // с элементом "поле" - предполагается, что он имеет идентификатор "fielderror".
+                //
+                // Также установливаем переменную global governor Screen Validnor Допустимый экран
+
+                var fielderrormessageid = field + "error";
+                document.getElementById(fielderrormessageid).innerHTML = errorMessage;
+                document.getElementById(fielderrormessageid).style.color = 'red';
+
+                insertScreenValid = false;
+                updateScreenValid = false;
+            }
+
+            function clearAllErrors() {
+
+                // получаем все элементы с классом formerrormesssss formerrormessage и очистите их
+
+                var elements = document.getElementsByClassName('formerrormessage');
+                for (var i = 0; i < elements.length; i++) {
+                    elements[i].innerHTML = '';
+                }
+            }
+
+
+        </script>
+    </body>
+</html>
